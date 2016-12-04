@@ -5,7 +5,6 @@ Data scraping
 
 from lxml import html
 import requests,re,datetime,time,os,sys
-from numpy import *
 import pdb
 
 sys.path.insert(0,'./')

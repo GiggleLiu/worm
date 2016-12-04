@@ -1,7 +1,8 @@
 # A Simple Worm
 ##Requirements
 * python 2.7
-* zlib
+* lxml
+* requests
 
 ##Run In a Terminal
 ```

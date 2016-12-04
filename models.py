@@ -156,7 +156,3 @@ def init_sources():
         conn.execute('''insert into source (name,link) values ('%s','%s')'''%(source[0],source[1]))
     conn.commit()
     conn.close()
-
-if __name__=='__main__':
-    init_tables()
-    init_sources()

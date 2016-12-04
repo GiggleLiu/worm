@@ -5,7 +5,7 @@ Data scraping
 
 from lxml import html
 import requests,re,datetime,time,os,threading
-from numpy import *
+import bisect,random
 import pdb
 
 from utils import quicksave,quickload,beep,load_samplepage
@@ -59,7 +59,7 @@ class Worm(object):
         pq=self.posts
         print 'Add Post %s'%post
         times=[-p.get_time() for p in pq]
-        pos=searchsorted(times,-post.get_time())
+        pos=bisect.bisect_right(times,-post.get_time())
         pq.insert(pos,post)
         if len(pq)>self.npost:
             pq.pop(-1)
