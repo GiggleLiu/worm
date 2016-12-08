@@ -19,15 +19,17 @@ class Source(object):
         self.name=name
 
     def __str__(self):
-        return '<源: %s> %s'%(self.name,self.baselink)
+        return '<s%s: %s> %s'%(self.id,self.name,self.baselink)
 
     def __repr__(self):
         return self.__str__()
 
     def get_page(self):
         '''Get the site page'''
-        page=requests.get(self.baselink).content
-        return page
+        page=requests.get(self.baselink)
+        if page.encoding=='ISO-8859-1': page.encoding='utf-8'
+        res=page.content.decode(page.encoding)
+        return res
 
 class Post(object):
     '''Single post.'''
@@ -37,23 +39,24 @@ class Post(object):
             title=title.encode('utf-8')
         if isinstance(link,unicode):
             link=link.encode('utf-8')
-        if isinstance(time,unicode):
-            time=time.encode('utf-8')
         if isinstance(pagecontent,buffer):
             pagecontent=zlib.decompress(pagecontent)
         self.title,self.link,self.time,self.source_id=title,link,time,source_id
         self.money,self.pagecontent=money,pagecontent
 
     def __str__(self):
-        s='<中标: %s>\n时间: %s\n来源: %s\n金额: %s万元\n链接: %s'%(self.title,self.time,self.source_id,self.money,self.link)
+        s='<标题: %s>\n时间: %s\n来源: %s%s\n链接: %s'%(self.title,datetime.datetime.utcfromtimestamp(self.time),self.source_id,('' if self.money==0 else '\n金额: %s万元'%self.money),self.link)
         return s
 
     def __repr__(self):
         return self.__str__()
 
+    def __eq__(self,target):
+        return self.title==target.title
+
     def formatted_str(self):
         '''Formatted string for display.'''
-        info='{:<100} {:<20} {:<5}'.format(self.title,self.time,self.source_id.strip())
+        info='{:<100} {:<20} {:<5}'.format(self.title,datetime.datetime.utcfromtimestamp(self.time),self.source_id.strip())
         link='{:<100}'.format(self.link)
         res='%s'%(info)
         return res
@@ -69,14 +72,10 @@ class Post(object):
 
     def get_page(self):
         '''Get the detailed information page of post.'''
-        page=requests.get(self.link).content
-        return page
-
-    def get_time(self):
-        '''Get the absolute time.'''
-        dt=datetime.datetime.strptime(self.time,'%Y-%m-%d %H:%M:%S').timetuple()
-        t=time.mktime(dt)
-        return t
+        page=requests.get(self.link)
+        if page.encoding=='ISO-8859-1': page.encoding='utf-8'
+        res=page.content.decode(page.encoding)
+        return res
 
 def save_post(post):
     '''Save a source or post.'''
@@ -137,7 +136,7 @@ def init_tables():
     conn.execute('''create table post
             (id integer primary key autoincrement,
             title text unique not null,
-            time char(50) not null,
+            time float not null,
             link text not null,
             source_id integer,
             money real,
@@ -150,9 +149,20 @@ def init_sources():
     '''initialize sources.'''
     source_list=[
             (u'中国政府采购网','http://www.ccgp.gov.cn/ppp/pppzhbgg/'),
+            (u'北京财政','http://www.bjcz.gov.cn/zfcg/cggg/sycjjggg/index.htm'),
+            (u'广州市政府采购网','http://www.gzg2b.gov.cn/Sites/_Layouts/ApplicationPages/News/News.aspx?ColumnName=%e6%8b%9b%e6%a0%87%e7%bb%93%e6%9e%9c%e5%85%ac%e5%91%8a'),
+            (u'云财经','http://www.yuncaijing.com/insider/main.html'),
+            (u'证快讯','http://news.cnstock.com/bwsd/index.html'),
+            (u'财联社','http://www.cailianpress.com'),
+            (u'互动易','http://irm.cninfo.com.cn/ircs/sse/sseSubIndex.do?condition.type=7'),
+            (u'上证e互动','http://sns.sseinfo.com/'),
+            (u'淘财经','http://www.taoguba.com/')
             ]
     conn=sqlite3.connect(dbfile)
     for source in source_list:
-        conn.execute('''insert into source (name,link) values ('%s','%s')'''%(source[0],source[1]))
+        try:
+            conn.execute('''insert into source (name,link) values ('%s','%s')'''%(source[0],source[1]))
+        except:
+            print 'Create Source Fail: %s.'%(source,)
     conn.commit()
     conn.close()

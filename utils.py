@@ -1,10 +1,10 @@
 #-*-coding:utf-8-*-
 
 import cPickle as pickle
-import os,platform,time
+import os,platform,time,re
 import pdb
 
-__all__=['quicksave','quickload','beep','inherit_docstring_from']
+__all__=['quicksave','quickload','beep','inherit_docstring_from','match_money','load_samplepage']
 
 def quicksave(filename,obj):
     '''Save an instance.'''
@@ -18,14 +18,6 @@ def quickload(filename):
     obj=pickle.load(f)
     f.close()
     return obj
-
-def load_samplepage(i=None):
-    '''sample page for source/post(if i specified)'''
-    if i is None:
-        page=quickload('samples/sample_page.dat')
-    else:
-        page=quickload('samples/sample_page_%s.dat'%i)
-    return page
 
 def beep(span=2,ntimes=1):
     '''Beep!'''
@@ -45,4 +37,27 @@ def inherit_docstring_from(cls):
         return fn
     return docstring_inheriting_decorator
 
+def match_money(s):
+    '''
+    Search money string from a string, in wan yuan.
+    '''
+    if isinstance(s,unicode): s=s.encode('utf-8')
+    format1=[r'￥([\d|,]+\.?\d*)',r'([\d|,]+\.?\d*) ?元']
+    format2=[r'([\d|,]+\.?\d*) ?万元']
+    res1=reduce(lambda x,y:x+y,[re.findall(f,s) for f in format1])
+    res2=reduce(lambda x,y:x+y,[re.findall(f,s) for f in format2])
+    m=0
+    for d in res1:
+        m+=float(''.join(d.split(',')))/1e4
+    for d in res2:
+        m+=float(''.join(d.split(',')))
+    return m
+
+def load_samplepage(isource,i=None):
+    '''sample page for source/post(if i specified)'''
+    if i is None:
+        page=quickload('samples%s/sample_page.dat'%isource)
+    else:
+        page=quickload('samples%s/sample_page_%s.dat'%(isource,i))
+    return page
 

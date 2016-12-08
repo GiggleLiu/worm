@@ -7,7 +7,7 @@ import pdb
 
 from models import get_sources,get_posts_bysid
 from worm import Worm
-from setting import NPOST
+from setting import POSTCACHE
 
 helptext='''Table of Commands:
     ls: List sources.
@@ -31,7 +31,7 @@ class MyApp(Cmd,object):
     '''My Console Application.'''
     def __init__(self,*args,**kwargs):
         super(MyApp,self).__init__(*args,**kwargs)
-        self.worm=Worm(NPOST)
+        self.worm=Worm(POSTCACHE)
 
     def do_ls(self,args):
         '''list informations from database.'''
@@ -79,19 +79,20 @@ class MyApp(Cmd,object):
         self.worm.stop_listen()
 
     def do_update(self,args):
-        '''Update all posts.'''
+        '''
+        Update all posts.
+
+        args:
+            the group index, or empty.
+        '''
         if len(args)==0:
-            self.worm.update_all()
+            i=None
         else:
             try:
                 i=int(args)
             except:
                 print 'Wrong type of input! Should be e.g. >> update 1'
-            if i<len(self.worm.handlers) and i>=0:
-                info=self.worm.update(i)
-                if not info: print 'Can not update posts from source: %s'%h.source
-            else:
-                print 'Source index out of range!'
+        info=self.worm.update_all(group=i)
 
     def do_h(self,args):
         '''Help'''
