@@ -8,6 +8,7 @@ import pdb
 from models import get_sources,get_posts_bysid
 from worm import Worm
 from setting import POSTCACHE
+from utils import browselink
 
 helptext='''Table of Commands:
     ls: List sources.
@@ -58,7 +59,7 @@ class MyApp(Cmd,object):
         except:
             print 'Wrong type of input! Should be e.g. >> browse 1'
         if i<len(self.worm.posts) and i>=0:
-            self.worm.posts[i].browse()
+            browselink(self.worm.posts[i].link)
         else:
             print 'Post index out of range!'
 

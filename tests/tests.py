@@ -8,44 +8,47 @@ import requests,re,datetime,time,os,sys
 import pdb
 
 sys.path.insert(0,'./')
-from utils import quicksave,quickload,beep,load_samplepage
-from models import get_sources,save_post,get_posts_bysid
-from handlers import get_handler,SourceHandlerB,SourceHandlerA
+from utils import quicksave,quickload,beep,load_samplepage,browsepage
+from models import get_sources,save_post,get_posts_bysid,get_source
+from handlers import get_handler,SourceHandlerB,SourceHandlerA,SourceHandlerC
+from opener import MyBrowser
 
 TESTMODE=False
 
 def test_getsource(isource):
-    sources=get_sources()
-    source=[source for source in sources if source.id==isource][0]
+    source=get_source(isource)
     handler=get_handler(source)
 
     if TESTMODE:
         page=load_samplepage(isource)
     else:
-        page=source.get_page()
+        page=handler.browser.openlink(source.baselink)
         quicksave('samples%s/sample_page.dat'%isource,page)
+    print 'Get source %s'%handler.source
     return handler,page
 
-def test_getzb(isource):
-    handler,page=test_getsource(isource)
-    if not isinstance(handler,SourceHandlerA):
-        raise ValueError
-    handler.update()
+def test_list(isource):
+    handler=get_handler(get_source(isource))
+    page=handler.update()
+    if page is not None:
+        quicksave('samples%s/sample_page.dat'%isource,page)
     posts=handler.posts
 
-    for i,p in enumerate(posts):
+    print 'Posts'
+    for i,p in enumerate(handler.posts):
         print p
-
-def test_getmes(isource):
-    handler,page=test_getsource(isource)
-    if not isinstance(handler,SourceHandlerB):
-        raise ValueError
-    handler.update()
-    posts=handler.posts
-
-    for i,p in enumerate(posts):
+    print 'Important Posts'
+    for i,p in enumerate(handler.important_posts):
         print p
+    pdb.set_trace()
+
+def test_browseupdate():
+    source=get_source(8)
+    handler=get_handler(source)
+    page=handler.browser.openlink(source.baselink)
+    pdb.set_trace()
+
 
 if __name__=='__main__':
-    test_getzb(3)
-    #test_getmes(6)
+    test_list(9)
+    #test_browseupdate()

@@ -2,9 +2,11 @@
 
 import cPickle as pickle
 import os,platform,time,re
+import webbrowser
 import pdb
 
-__all__=['quicksave','quickload','beep','inherit_docstring_from','match_money','load_samplepage']
+__all__=['quicksave','quickload','beep','inherit_docstring_from','match_money',\
+        'load_samplepage','browselink','browsepage']
 
 def quicksave(filename,obj):
     '''Save an instance.'''
@@ -60,4 +62,18 @@ def load_samplepage(isource,i=None):
     else:
         page=quickload('samples%s/sample_page_%s.dat'%(isource,i))
     return page
+
+def browsepage(pagecontent):
+    '''View page on browser.'''
+    path=os.path.abspath('temp.html')
+    url='file://'+path
+    with open(path,'w') as f:
+        f.write(pagecontent)
+    f.close()
+    webbrowser.open(url)
+
+def browselink(link):
+    '''View link on browser'''
+    webbrowser.open(link)
+
 

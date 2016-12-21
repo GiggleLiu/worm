@@ -1,6 +1,6 @@
 #-*-coding:utf-8-*-
 
-import requests,sqlite3,zlib,os,time,datetime,webbrowser
+import requests,sqlite3,zlib,os,time,datetime
 import pdb
 
 __all__=['dbfile','Source','Post','save_post','get_sources','get_source',
@@ -33,7 +33,7 @@ class Source(object):
 
 class Post(object):
     '''Single post.'''
-    def __init__(self,title,link,time,source_id,money=0,pagecontent='',id=-1):
+    def __init__(self,title,link,time,source_id,money=-1,pagecontent='',is_important=False,id=-1):
         self.id=id
         if isinstance(title,unicode):
             title=title.encode('utf-8')
@@ -43,9 +43,10 @@ class Post(object):
             pagecontent=zlib.decompress(pagecontent)
         self.title,self.link,self.time,self.source_id=title,link,time,source_id
         self.money,self.pagecontent=money,pagecontent
+        self.is_important=is_important
 
     def __str__(self):
-        s='<标题: %s>\n时间: %s\n来源: %s%s\n链接: %s'%(self.title,datetime.datetime.utcfromtimestamp(self.time),self.source_id,('' if self.money==0 else '\n金额: %s万元'%self.money),self.link)
+        s='标题[%s]: %s\n时间: %s\n来源: %s%s\n链接: %s'%(self.title,'重要' if self.is_important else '',datetime.datetime.utcfromtimestamp(self.time),self.source_id,('' if self.money==0 else '\n金额: %s万元'%self.money),self.link)
         return s
 
     def __repr__(self):
@@ -60,15 +61,6 @@ class Post(object):
         link='{:<100}'.format(self.link)
         res='%s'%(info)
         return res
-
-    def browse(self):
-        '''View this post on browser.'''
-        path=os.path.abspath('temp.html')
-        url='file://'+path
-        with open(path,'w') as f:
-            f.write(self.pagecontent)
-        f.close()
-        webbrowser.open(url)
 
     def get_page(self):
         '''Get the detailed information page of post.'''
@@ -109,8 +101,11 @@ def get_posts():
 
 def get_source(sid):
     '''Get single source by id.'''
+    if sid==-1: #load dummy source.
+        return Source('未知源','http://127.0.0.1/')
     conn=sqlite3.connect(dbfile)
-    res=[Source(item[1],item[2],id=item[0]) for item in conn.execute('''select * from source where id=%s;'''%sid)]
+    item=list(conn.execute('''select * from source where id=%s;'''%sid))[0]
+    res=Source(item[1],item[2],id=item[0])
     conn.close()
     return res
 
@@ -154,8 +149,8 @@ def init_sources():
             (u'云财经','http://www.yuncaijing.com/insider/main.html'),
             (u'证快讯','http://news.cnstock.com/bwsd/index.html'),
             (u'财联社','http://www.cailianpress.com'),
-            (u'互动易','http://irm.cninfo.com.cn/ircs/sse/sseSubIndex.do?condition.type=7'),
-            (u'上证e互动','http://sns.sseinfo.com/'),
+            (u'互动易','http://irm.cninfo.com.cn/ircs/interaction/lastRepliesForSzse.do'),
+            (u'上证e互动','http://sns.sseinfo.com/ajax/feeds.do?page=1&type=11&pageSize=10&lastid=-1&show=1'),
             (u'淘财经','http://www.taoguba.com/')
             ]
     conn=sqlite3.connect(dbfile)

@@ -45,6 +45,11 @@ class Worm(object):
             if h.source.id==id:
                 return i
 
+    def update_all(self):
+        '''Update all sources.'''
+        for g in self.groups:
+            g.update()
+
     def listen(self):
         ''''''
         if self.is_listening:

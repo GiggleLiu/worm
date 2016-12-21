@@ -1,7 +1,7 @@
 #-*-coding:utf-8-*-
 
 from lxml import html
-import requests,re,time,bisect,random
+import requests,re,time,bisect,random,json
 from abc import ABCMeta, abstractmethod
 from datetime import datetime,timedelta,date
 import pdb
@@ -9,8 +9,9 @@ import pdb
 from models import *
 from utils import inherit_docstring_from,match_money,load_samplepage,beep
 from setting import KEYWORDS_MES,KEYWORDS_ANS,TARGET_MONEY,UPDATE_SPAN,POSTCACHE,TESTMODE,NBEEP
+from opener import MyBrowser
 
-__all__=['get_handler','SourceHandlerA','SourceHandlerB','SourceHandlerC','GHandler','get_groups']
+__all__=['get_handler','SourceHandlerA','SourceHandlerB','SourceHandlerC','GHandler','get_groups','DummyHandler']
 
 class SourceHandler(object):
     '''
@@ -31,6 +32,7 @@ class SourceHandler(object):
     def __init__(self,source):
         self.source=source
         self.posts=[]
+        self.browser=MyBrowser()
 
     @abstractmethod
     def get_list(self,pagecontent):
@@ -45,9 +47,9 @@ class SourceHandler(object):
         pass
 
     @abstractmethod
-    def accept(self,post):
+    def is_important(self,post):
         '''
-        Decide accept this post or not.
+        Decide this post is important or not.
         
         Parameters:
             :post: <Post>,
@@ -56,6 +58,20 @@ class SourceHandler(object):
             bool,
         '''
         pass
+
+    @property
+    def important_posts(self):
+        '''Get important posts.'''
+        return filter(self.is_important,self.posts)
+
+    def alert(self,post):
+        '''Alert user about new post.'''
+        if self.is_important(post):
+            post.is_important=True
+            beep(NBEEP)
+            print '[Important] Add New Post -> %s'%post
+        else:
+            print 'Add New Post -> %s'%post
 
     def has_post(self,p):
         '''Has post or not.'''
@@ -66,7 +82,6 @@ class SourceHandler(object):
         if self.has_post(post):
             return 0
         pq=self.posts
-        print 'Add Post %s'%post
         times=[-p.time for p in pq]
         pos=bisect.bisect_right(times,-post.time)
         pq.insert(pos,post)
@@ -74,34 +89,33 @@ class SourceHandler(object):
             pq.pop(-1)
         return 1
 
-    def update(self):
+    def update(self,alert=False):
         '''
         Update post information from the source.
         '''
         try:
-            page=self.source.get_page() if not TESTMODE else load_samplepage(self.source.id)
+            if TESTMODE:
+                page=load_samplepage(self.source.id)
+            else:
+                page=self.browser.openlink(self.source.baselink)
             posts=self.get_list(page)
         except:
             raise
             print 'Error: Can not get main page for source %s!'%self.source
-            return 0
+            return None
         try:
             if TESTMODE: posts=[p for p in posts if random.random()>0.4]
             for i,post in enumerate(posts):
                 #filter old pages
                 if self.has_post(post):
                     continue
-                if self.accept(post):
-                    info=self.add_post(post)
-                    if info: beep(NBEEP)
-                    if not TESTMODE:
-                        time.sleep(1)
-            return 1
+                info=self.add_post(post)
+                if info and alert: self.alert(post)
+            return page
         except:
             raise
             print 'Error while processing posts for %s'%self.source
-            page=None
-            return 0
+            return None
 
     def save_posts(self):
         '''Save all posts.'''
@@ -117,6 +131,21 @@ class SourceHandler(object):
         for p in get_posts_bysid(self.source.id):
             self.add_post(p)
 
+
+class DummyHandler(SourceHandler):
+    '''Dummy Handler.'''
+    @inherit_docstring_from(SourceHandler)
+    def is_important(self,post):
+        print 'Is Important -> %s'%post
+        return random.random()>0.5
+
+    @inherit_docstring_from(SourceHandler)
+    def get_list(self,pagecontent):
+        ipost=random.randint(0,100000000)
+        posts=[Post('Title-%s'%ipost,link='http://127.0.0.1/',time=time.time(),source_id=-1) for i in xrange(random.randint(0,15))]
+        res=[p for p in posts]
+        print 'Fetch list, get %s posts.'%len(res)
+        return res
 
 class SourceHandlerA(SourceHandler):
     __metaclass__ = ABCMeta
@@ -138,10 +167,11 @@ class SourceHandlerA(SourceHandler):
         pass
 
     @inherit_docstring_from(SourceHandler)
-    def accept(self,post):
-        pagei=post.get_page()
-        post.pagecontent=pagei
-        post.money=self.get_money(pagei)
+    def is_important(self,post):
+        if post.pagecontent=='':
+            pagei=self.browser.openlink(post.link)
+            post.pagecontent=pagei
+            post.money=self.get_money(pagei)
         return post.money>=TARGET_MONEY
 
 
@@ -152,8 +182,7 @@ class SourceHandlerB(SourceHandler):
     update_span=UPDATE_SPAN[1]
 
     @inherit_docstring_from(SourceHandler)
-    def accept(self,post):
-        '''decide accept this post or not.'''
+    def is_important(self,post):
         return any([k in post.title for k in KEYWORDS_MES])
 
 class SourceHandlerC(SourceHandler):
@@ -163,7 +192,7 @@ class SourceHandlerC(SourceHandler):
     update_span=UPDATE_SPAN[2]
 
     @inherit_docstring_from(SourceHandler)
-    def accept(self,post):
+    def is_important(self,post):
         return any([k in post.title for k in KEYWORDS_ANS])
 
 ################### Groupwise SourceHandler #################
@@ -225,7 +254,7 @@ class SHA0(SourceHandlerA):
 
 class SHA1(SourceHandlerA):
     '''北京财政'''
-    status='ok'
+    status='error'   #reason, no uniform money format.
     @inherit_docstring_from(SourceHandler)
     def get_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
@@ -241,13 +270,11 @@ class SHA1(SourceHandlerA):
 
     @inherit_docstring_from(SourceHandlerA)
     def get_money(self,pagecontent):
-        #hard to be implemented
-        return 0
-        #return match_money(pagecontent)
+        return match_money(pagecontent)
 
 class SHA2(SourceHandlerA):
     '''广州市政府采购网'''
-    status='ok'
+    status='error'   #reason, no uniform money format.
     @inherit_docstring_from(SourceHandler)
     def get_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
@@ -272,6 +299,7 @@ class SHB0(SourceHandlerB):
     status='error'
     @inherit_docstring_from(SourceHandler)
     def get_list(self,pagecontent):
+        pdb.set_trace()
         raise NotImplementedError
 
 class SHB1(SourceHandlerB):
@@ -290,8 +318,7 @@ class SHB1(SourceHandlerB):
                 t=datetime.strftime(datetime.now(),'%Y-%m-%d ')+t
                 t=time.mktime(datetime.strptime(t,'%Y-%m-%d %H:%M').timetuple())
                 post=Post(title,a.get('href'),time=t,source_id=self.source.id)
-                if self.accept(post):
-                    posts.append(post)
+                posts.append(post)
             except:
                 raise
                 print 'Parsing Error!@B1'
@@ -300,19 +327,58 @@ class SHB1(SourceHandlerB):
 class SHB2(SourceHandlerB):
     '''财联社'''
     status='ok'
+    def __init__(self,*args,**kwargs):
+        self.ctime=str(int(time.time())-3600)
+        super(SHB2,self).__init__(*args,**kwargs)
+
+    def update(self):
+        text=self.browser.openlink('http://www.cailianpress.com/v2/article/get_roll?type=-1&staid=%s&count=20&flow=1&_=%s'%(self.ctime,round(time.time()*1000)))
+        js=json.loads(text)
+        if js['errno']!=0:  #has data
+            return
+        self.ctime=d['previous_cursor']
+        posts=[Post(d['content'],'',time=int(d['time']),source_id=self.source.id) for d in js['data']]
+        pdb.set_trace()
+        return res
+
+    @inherit_docstring_from(SourceHandler)
+    def get_list(self,pagecontent):
+        raise NotImplementedError()
+        #tree=html.fromstring(pagecontent)
+        #lis=tree.xpath(u"//ul[@class='fix']")
+        #posts=[]
+        #for li in lis:
+        #    try:
+        #        t,title=[l.text for l in li.findall('li')[:2]]
+        #        t=datetime.strftime(datetime.now(),'%Y-%m-%d ')+t
+        #        t=time.mktime(datetime.strptime(t,'%Y-%m-%d %H:%M').timetuple())
+        #        post=Post(title.strip('\r\n\t '),'',time=t,source_id=self.source.id)
+        #        posts.append(post)
+        #    except:
+        #        raise
+        #        print 'Parsing Error!@B2'
+        #return posts
+
+class SHC0(SourceHandlerC):
+    '''
+    互动易
+    '''
+    status='ok'
     @inherit_docstring_from(SourceHandler)
     def get_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        lis=tree.xpath(u"//ul[@class='fix']")
+        lis=tree.xpath(u".//div[@class='answerBox']")
         posts=[]
         for li in lis:
             try:
-                t,title=[l.text for l in li.findall('li')[:2]]
-                t=datetime.strftime(datetime.now(),'%Y-%m-%d ')+t
-                t=time.mktime(datetime.strptime(t,'%Y-%m-%d %H:%M').timetuple())
-                post=Post(title.strip('\r\n\t '),'',time=t,source_id=self.source.id)
-                if self.accept(post):
-                    posts.append(post)
+                user=li.xpath(u".//a[@class='blue1']")[0].text
+                content=li.xpath(u".//a[@class='cntcolor']")[0].text
+                title=user+': '+content.strip('\r\n\t ')
+                t=li.xpath(u".//a[@class='date']")[0].text.strip('\r\n\t ')
+                t=time.mktime(datetime.strptime(t.encode('utf-8'),'%Y年%m月%d日 %H:%M').timetuple())
+
+                post=Post(title,'',time=t,source_id=self.source.id)
+                posts.append(post)
             except:
                 raise
                 print 'Parsing Error!@B2'
@@ -320,19 +386,25 @@ class SHB2(SourceHandlerB):
 
 class SHC1(SourceHandlerC):
     '''
-    互动易
+    上证e互动
     '''
     status='ok'
     def _decode_time(self,t):
-        match1=re.match(r'昨天 \d+:\d+',t)
+        if isinstance(t,unicode):t=t.encode('utf-8')
+        match1=re.match(r'昨天 (\d+:\d+)',t)
         if match1:
-            t=datetime.strftime(date.today()-timedelta(1),'%Y-%m-%d ')+t
+            t=datetime.strftime(date.today()-timedelta(1),'%Y-%m-%d ')+match1.group(1)
             t=time.mktime(datetime.strptime(t,'%Y-%m-%d %H:%M').timetuple())
             return t
 
         match2=re.match(r'\d+月\d+日 \d+:\d+',t)
         if match2:
             t=time.mktime(datetime.strptime(str(date.today().year)+'-'+t,'%Y-%m月%d日 %H:%M').timetuple())
+            return t
+
+        match3=re.match(r'(\d+)小时前',t)
+        if match3:
+            t=time.mktime((datetime.now()-timedelta(int(match3.group(1))/24.)).timetuple())
             return t
 
     @inherit_docstring_from(SourceHandler)
@@ -342,16 +414,56 @@ class SHC1(SourceHandlerC):
         posts=[]
         for li in lis:
             try:
-                isans=li.xpath(u".//div[@class='m_feed_info']")[0].find('div').get('class')=='answer_ico'
-                if not isans: continue
-                user=li.xpath(u".//div[@class='m_feed_face']")[0].find('p').text
-                ans=user+': '+li.xpath(u".//div[@class='m_feed_txt']")[0].text
+                userl=li.xpath(u".//a[@class='ansface']")
+                if len(userl)==0: continue
+                ans=userl[0].get('title')+': '+li.xpath(u".//div[@class='m_feed_txt']")[0].text.strip('\r\n\t ')
                 t=li.xpath(u".//div[@class='m_feed_from']")[0].find('span').text
                 t=self._decode_time(t)
+                post=Post(ans,'',time=t,source_id=self.source.id)
+                posts.append(post)
+            except:
+                raise
+                print 'Parsing Error!@B2'
+        return posts
 
-                post=Post(title.strip('\r\n\t '),'',time=t,source_id=self.source.id)
-                if self.accept(post):
-                    posts.append(post)
+class SHC2(SourceHandlerC):
+    '''
+    淘财经
+    '''
+    status='error'
+    def __init__(self,*args,**kwargs):
+        self.ctime=str(int(time.time())-10)
+        super(SHC2,self).__init__(*args,**kwargs)
+
+    def update(self):
+        text=self.browser.openlink('http://www.taoguba.com/recent_post.id?%s'%(self.ctime*1000))
+        js=json.loads(text)
+        self.ctime=str(int(time.time())-10)
+        if js==10364: return 0
+        pdb.set_trace()
+        posts=[Post(d['content'],'',time=int(d['time']),source_id=self.source.id) for d in js['data']]
+        pdb.set_trace()
+        return res
+
+    @inherit_docstring_from(SourceHandler)
+    def get_list(self,pagecontent):
+        raise NotImplementedError()
+ 
+    @inherit_docstring_from(SourceHandler)
+    def get_list(self,pagecontent):
+        tree=html.fromstring(pagecontent)
+        lis=tree.xpath(u".//div[@class='answerBox']")
+        posts=[]
+        for li in lis:
+            try:
+                user=li.xpath(u".//a[@class='blue1']")[0].text
+                content=li.xpath(u".//a[@class='cntcolor']")[0].text
+                title=user+': '+content.strip('\r\n\t ')
+                t=li.xpath(u".//a[@class='date']")[0].text.strip('\r\n\t ')
+                t=time.mktime(datetime.strptime(t.encode('utf-8'),'%Y年%m月%d日 %H:%M').timetuple())
+
+                post=Post(title,'',time=t,source_id=self.source.id)
+                posts.append(post)
             except:
                 raise
                 print 'Parsing Error!@B2'
@@ -373,6 +485,14 @@ def get_handler(source):
         return SHB1(source)
     elif source.name=='财联社':
         return SHB2(source)
+    elif source.name=='互动易':
+        return SHC0(source)
+    elif source.name=='上证e互动':
+        return SHC1(source)
+    elif source.name=='淘财经':
+        return SHC2(source)
+    elif source.name=='未知源':
+        return DummyHandler(source)
     else:
         raise ValueError
 
