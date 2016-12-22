@@ -4,14 +4,10 @@ Data scraping
 '''
 
 from lxml import html
-import requests,re,datetime,time,os,threading
-import random
 import pdb
 
-from utils import quicksave,quickload,beep,load_samplepage
-from models import get_sources,save_post,get_posts
-from handlers import get_handler,get_groups
-from setting import TESTMODE,NBEEP,UPDATE_SPAN
+from models import get_sources
+from handlers import get_handler
 
 class Worm(object):
     '''
@@ -19,57 +15,63 @@ class Worm(object):
     
     Attibutes:
 
-        :groups: list, <GSource> instances.
-        :_stop_event: <threading.Event> instance, that control the listening thread.
-        :is_listening(read only): bool,
+        :handlers: list, <SourceHandler> instances.
     '''
-    def __init__(self,npost=100):
-        self.npost=npost
-        self._stop_event=threading.Event()
-        nh=len(self.handlers)
-        #list items are posts in a queue of length 100
-        self.stop_listen()
-        #get groups of handlers
+    def __init__(self):
+        #get handlers
         handlers=[get_handler(source) for source in get_sources()]
-        handlers=[h for h in handlers in h.status=='ok']
-        self.groups=get_groups(handlers)
-        self.update_all()
-
-    @property
-    def is_listening(self):
-        return not self._stop_event.isSet()
+        handlers=[h for h in handlers if h.source.status=='ok']
+        self.handlers=handlers
 
     def get_handler_bysid(self,id):
         '''Get the handler by id of source.'''
         for i,h in enumerate(self.handlers):
             if h.source.id==id:
-                return i
+                return h
+        return -1
 
-    def update_all(self):
-        '''Update all sources.'''
-        for g in self.groups:
-            g.update()
+    def do(self,command,isource=None):
+        '''
+        Do command on specific source.
 
-    def listen(self):
-        ''''''
-        if self.is_listening:
-            print 'Already listening.'
-            return 0
-        self._stop_event.clear()
+        Parameters:
+            :command: str, one of 'update'/'refresh'/'listen'/'stop_listen'
+            :isource: int/list/None, source id/list of source ids/all sources.
+        '''
+        if isource is None:
+            handlers=self.handlers
+        else:
+            if not hasattr(isource,'__iter__'): isource=[isource]
+            handlers=[self.get_handler_bysid(x) for x in isource]
+        for h in handlers:
+            if h is -1:
+                print 'Can not find specific handler %s.'%isource
+            else:
+                getattr(h,command)()
 
-        def updator():
-            while True:
-                if not self.is_listening:
-                    break
-                else:
-                    time.sleep(UPDATE_SPAN)
-                    self.update_all()
-        t=threading.Thread(target=updator,args=())
-        t.daemon=True
-        t.start()
-        self.thread=t
-        return 1
+    def get_listeners(self):
+        '''Get all listeners.'''
+        return [h for h in self.handlers if h.is_listening]
 
-    def stop_listen(self):
-        '''Stop an listening even.'''
-        self._stop_event.set()
+    def print_stat(self):
+        '''Get summary information.'''
+        print 'Summary '+'-'*72
+        for h in self.handlers:
+            print h
+        print '-'*80
+        print 'All %s sources.'%len(self.handlers)
+
+    def get_posts(self,maxN,isource=None):
+        '''Get posts.'''
+        if isource is None:
+            handlers=self.handlers
+        else:
+            if not hasattr(isource,'__iter__'): isource=[isource]
+            handlers=[self.get_handler_bysid(x) for x in isource]
+        posts=[]
+        for h in handlers:
+            if h is -1:
+                print 'Can not find specific handler %s.'
+            else:
+                posts.extend(h.posts)
+        return sorted(posts,key=lambda p:p.time)[-maxN:]

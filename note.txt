@@ -1,3 +1,0 @@
-ajax/feeds.do?type=11&show=1&pageSize=10&lastid=-1&page=2
-ajax/feeds.do?page=1&type=10&pageSize=10&lastid=-1&show=" + showAll, 2
-http://sns.sseinfo.com/ajax/feeds.do?type=11&pageSize=10&lastid=-1&show=1&page=1&_=1482328143158
