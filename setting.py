@@ -1,9 +1,13 @@
 #-*-coding:utf-8-*-
+import platform
 
 TESTMODE=False
 
 #number of posts alive.
 POSTCACHE=1000
+
+#platform, 'Windows'/'Linux'
+PLATFORM=platform.system()
 
 #numer of beeps
 NBEEP=1
@@ -39,14 +43,16 @@ KEYWORDS_ANS=['百度','阿里','腾讯','支付宝','蚂蚁金服','360','万�
 #status 'ok': 该源可以正常解析
 #status 'error': 该源不可以正常解析，更新时跳过
 SOURCE_CONFIG=[
-        ('中国政府采购网',0,200,'ok','http://www.ccgp.gov.cn/ppp/pppzhbgg/'),
+        ('中国政府采购网-PPP',0,200,'ok','http://www.ccgp.gov.cn/ppp/pppzhbgg/'),
         ('北京财政',0,200,'error','http://www.bjcz.gov.cn/zfcg/cggg/sycjjggg/index.htm'),          #reason, no uniform money format.
         ('广州市政府采购网',0,200,'error','http://www.gzg2b.gov.cn/Sites/_Layouts/ApplicationPages/News/News.aspx?ColumnName=%e6%8b%9b%e6%a0%87%e7%bb%93%e6%9e%9c%e5%85%ac%e5%91%8a'),     #reason, no uniform money format.
         ('云财经',1,20,'error','http://www.yuncaijing.com/insider/main.html'),     #reason, unable to handle websocket.
         ('证快讯',1,150,'ok','http://news.cnstock.com/bwsd/index.html'),
         ('财联社',1,20,'ok','http://www.cailianpress.com'),
         ('互动易',2,150,'ok','http://irm.cninfo.com.cn/ircs/interaction/lastRepliesForSzse.do'),
-        ('上证e互动',2,150,'ok','http://sns.sseinfo.com/ajax/feeds.do?page=1&type=11&pageSize=10&lastid=-1&show=1'),
+        ('上证e互动',2,150,'ok','http://sns.sseinfo.com/ajax/feeds.do?page=1&type=11&pageSize=30&lastid=-1&show=1'),
         ('淘财经',1,20,'ok','http://www.taoguba.com/'),
         ('淘股吧',1,100,'ok','http://www.taoguba.com.cn/moreWonderList'),
+        ('中国政府采购网-中央标',0,200,'ok','http://www.ccgp.gov.cn/cggg/zygg/zbgg/'),
+        ('中国政府采购网-地方标',0,200,'error','http://www.ccgp.gov.cn/cggg/dfgg/zbgg/'),
         ]

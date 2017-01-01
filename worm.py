@@ -57,11 +57,11 @@ class Worm(object):
         '''Get summary information.'''
         print 'Summary '+'-'*72
         for h in self.handlers:
-            print h
+            print h.__str__().decode('utf-8')
         print '-'*80
         print 'All %s sources.'%len(self.handlers)
 
-    def get_posts(self,maxN,isource=None):
+    def get_posts(self,maxN,isource=None,kw=None,important=True):
         '''Get posts.'''
         if isource is None:
             handlers=self.handlers
@@ -69,9 +69,14 @@ class Worm(object):
             if not hasattr(isource,'__iter__'): isource=[isource]
             handlers=[self.get_handler_bysid(x) for x in isource]
         posts=[]
-        for h in handlers:
+        for ih,h in enumerate(handlers):
             if h is -1:
-                print 'Can not find specific handler %s.'
+                print 'Can not find handler for source %s.'%isource[ih]
             else:
                 posts.extend(h.posts)
-        return sorted(posts,key=lambda p:p.time)[-maxN:]
+        if kw is not None:
+            posts=filter(lambda p:kw in p.title,posts)
+        if important:
+            posts=filter(lambda p:p.is_important,posts)
+        posts=sorted(posts,key=lambda p:p.time)
+        return posts[-maxN:]

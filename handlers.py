@@ -2,7 +2,7 @@
 
 from lxml import html
 import re,time,bisect,random,json
-import threading
+import multiprocessing as threading
 from abc import ABCMeta, abstractmethod
 import pdb
 
@@ -34,6 +34,7 @@ class SourceHandler(object):
         #listening,
         self._stop_event=threading.Event()
         self.stop_listen()
+        self._thread=None
 
     def __str__(self):
         return '%s\n\tlistening(every %ss): %s\n\tnumber of posts: %s'%(self.source,\
@@ -78,7 +79,7 @@ class SourceHandler(object):
         elif self.source.group==2:
             return any([k in post.title for k in KEYWORDS_ANS])
         elif self.source.group==-1:  #dummy group
-            print 'Is Important -> %s'%post
+            print ('Is Important -> %s'%post).decode('utf-8')
             return random.random()>0.5
         else:
             raise ValueError
@@ -131,7 +132,7 @@ class SourceHandler(object):
     ######################## listening #################
     @property
     def is_listening(self):
-        return not self._stop_event.isSet()
+        return not self._stop_event.is_set()
 
     def listen(self):
         ''''''
@@ -140,17 +141,20 @@ class SourceHandler(object):
             return 0
         self._stop_event.clear()
 
+        #generate a new thread if first listening.
+        if self._thread is not None:
+            return
         def updator():
             while True:
                 time.sleep(self.source.update_span)
                 if not self.is_listening:
                     break
-                print 'Listen: Update Source %s'%self.source.name
+                print ('Listen: Update Source %s'%self.source.name).decode('utf-8')
                 self.update()
-        t=threading.Thread(target=updator,args=())
+        t=threading.Process(target=updator,args=())
         t.daemon=True
         t.start()
-        self.thread=t
+        self._thread=t
         return 1
 
     def stop_listen(self):
@@ -205,9 +209,12 @@ class SHA0(RefreshHandler):
 
     def get_money(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        ele=tree.xpath(u".//td[text()[contains(.,'人民币')]]")[0]
-        res=match_money(ele.text)
-        return res
+        ele=tree.xpath(u".//td[text()[contains(.,'人民币')]]")
+        if len(ele)>0:
+            res=match_money(ele[0].text)
+            return res or 0
+        else:
+            return 0
 
 class SHA1(RefreshHandler):
     '''北京财政'''
@@ -251,7 +258,7 @@ class SHB0(WSHandler):
     def update(self):
         text=self.browser.openlink('ws://push.yuncaijing.com:9503/')
         js=json.loads(text)
-        self.ctime=str(int(time.time())-10)
+        self.ctime=int(time.time())-10
         if js==10364: return 0
         posts=[Post(d['content'],self.source.baselink,time=time.time()) for d in js['data']]
         self.add_post(posts)
@@ -283,7 +290,7 @@ class SHB1(RefreshHandler):
 class SHB2(JsonHandler):
     '''财联社'''
     def __init__(self,*args,**kwargs):
-        self.ctime=str(int(time.time())-3600)
+        self.ctime=int(time.time())-3600
         super(SHB2,self).__init__(*args,**kwargs)
 
     def update(self):
@@ -291,7 +298,7 @@ class SHB2(JsonHandler):
         js=json.loads(text)
         if js['errno']!=0:  #has data
             return
-        self.ctime=js['previous_cursor']
+        self.ctime=int(js['previous_cursor'])
         posts=[Post(d['content'],self.source.baselink,time=time.time(),source_id=self.source.id) for d in js['data']]
         self.add_post(posts)
         return 1
@@ -358,14 +365,14 @@ class SHC2(JRHandler):
     淘财经
     '''
     def __init__(self,*args,**kwargs):
-        self.ctime=str(int(time.time())-10)
+        self.ctime=int(time.time())-10
         self.pid=0  #current post_id.
         super(SHC2,self).__init__(*args,**kwargs)
 
     def need_update(self):
         text=self.browser.openlink('http://www.taoguba.com/recent_post.id?%s'%(self.ctime*1000))
         js=json.loads(text)
-        self.ctime=str(int(time.time())-10)
+        self.ctime=int(time.time())-10
         if not isinstance(js,int): return 0
         if self.pid==0:
             self.pid=js
@@ -389,8 +396,7 @@ class SHC2(JRHandler):
                 post=Post(title,link,time=time.time(),source_id=self.source.id)
                 posts.append(post)
             except:
-                raise
-                print 'Parsing Error! %s'%self.source
+                print ('Parsing Error! %s'%self.source).decode('utf-8')
         return posts
 
 class SHC3(RefreshHandler):
@@ -410,14 +416,14 @@ class SHC3(RefreshHandler):
                 posts.append(post)
             except:
                 raise
-                print 'Parsing Error %s!'%self.source.title
+                print 'Parsing Error %s!'%self.source.title.decode('utf-8')
         return posts
 
 def get_handler(source):
     '''
     Get Handler by source.
     '''
-    if source.name=='中国政府采购网':
+    if source.name=='中国政府采购网-PPP':
         cls=SHA0
     elif source.name=='北京财政':
         cls=SHA1
@@ -437,6 +443,10 @@ def get_handler(source):
         cls=SHC2
     elif source.name=='淘股吧':
         cls=SHC3
+    elif source.name=='中国政府采购网-中央标':
+        cls=SHA0
+    elif source.name=='中国政府采购网-地方标':
+        cls=SHA0
     elif source.name=='未知源':
         cls=DummyHandler
     else:
@@ -450,4 +460,4 @@ def alert_post(post):
         if mode=='beep':
             beep(NBEEP)
         elif mode=='print':
-            print 'Add New Post -> %s'%post
+            print ('Add New Post -> %s'%post).decode('utf-8')

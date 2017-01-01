@@ -5,25 +5,43 @@ Command line user interface.
 '''
 
 from cmd import Cmd
+import argparse,sys
 import pdb
 
 from worm import Worm
 
 helptext='''Table of Commands:
     ls: List sources and summary.
-    lp: <n=10>: List latest n(default 10) posts if <source_id> provided.
-        e.g. >> l 2   # list latest 2 posts
+    lp [-h] [-n npost] [-s isource [isource ...]] [-w keyword] [-a]:
+        List latest posts. Optional arguments are,
+
+        -h, --help            show this help message of this command
+        -n npost              number of posts (default = 10)
+        -s isource [...]      id(s) of source (default = 7,8)
+        -w keyword            keyword as a filter
+        -a                    show all posts(including unimportant posts)
+
+        e.g. 1 `>> lp -n 2 -s 7,9 -w 注入 -a`
+            will list latest 2 posts with keyword 注入 from source 7 and 9 no matter they are important or not.
+        e.g. 2 `>> lp -n 12`
+            will list latest 12 important posts from source 7 and 8.
 
     update <i>: Update posts manually.
         Here, `i` is the source id, e.g. `update 1,2,3`.
         Leave no argument to make all sources updated.
-    listen <i>: Update automatically.
-    nolisten <i>: Stop automatic updates.
+    listen [i]: Update automatically.
+    nolisten [i]: Stop automatic updates.
 
     h: Show this help text.
     quit: Quit.
     debug: Programmer debug interface.
 '''
+
+lp_argp=argparse.ArgumentParser(prog='lp',description='List recent posts.')
+lp_argp.add_argument('-n',type=int,help='number of posts',metavar='npost',default=10)
+lp_argp.add_argument('-s',type=int,nargs='+',help='id(s) of source',metavar='isource',default=[7,8])
+lp_argp.add_argument('-w',type=str,help='keyword as a filter',metavar='keyword',default=None)
+lp_argp.add_argument('-a',help='show all posts(including unimportant posts)',action='store_true')
 
 class MyApp(Cmd,object):
     '''My Console Application.'''
@@ -44,13 +62,14 @@ class MyApp(Cmd,object):
 
     def do_lp(self,args):
         '''list posts'''
-        posts=[]
         try:
-            n=int(args)
+            args=lp_argp.parse_args(args.replace(',',' ').split())
         except:
-            n=10
-        for i,p in enumerate(self.worm.get_posts(maxN=n)):
-            print i,p.__str__()+'\n来源: %s'%self.worm.get_handler_bysid(p.source_id).source.name
+            return
+        n,isource,kw,ni=args.n,args.s,args.w,args.a
+        posts=[]
+        for i,p in enumerate(self.worm.get_posts(maxN=n,isource=isource,kw=kw,important=not ni)):
+            print i,(p.__str__()+'\n来源: %s'%self.worm.get_handler_bysid(p.source_id).source.name).decode('utf-8')
 
     def do_ls(self,args):
         '''Show Status.'''
