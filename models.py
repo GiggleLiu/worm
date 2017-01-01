@@ -51,7 +51,7 @@ class Post(object):
             link=link.encode('utf-8')
         if isinstance(pagecontent,buffer):
             pagecontent=zlib.decompress(pagecontent)
-        self.title,self.link,self.time,self.source_id=title,link,time,source_id
+        self.title,self.link,self.time,self.source_id=title.replace(u'\u200b'.encode('utf-8'),''),link,time,source_id
         self.money,self.pagecontent=money,pagecontent
         self.is_important=is_important
 

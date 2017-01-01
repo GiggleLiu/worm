@@ -13,6 +13,14 @@ from opener import MyBrowser
 
 __all__=['get_handler','RefreshHandler','JsonHandler','JRHandler','WSHandler','DummyHandler']
 
+def _updator(handler):
+    while True:
+        time.sleep(handler.source.update_span)
+        if not handler.is_listening:
+            break
+        print ('Listen: Update Source %s'%handler.source.name).decode('utf-8')
+        handler.update()
+
 class SourceHandler(object):
     '''
     Souce Handler class.
@@ -144,14 +152,7 @@ class SourceHandler(object):
         #generate a new thread if first listening.
         if self._thread is not None:
             return
-        def updator():
-            while True:
-                time.sleep(self.source.update_span)
-                if not self.is_listening:
-                    break
-                print ('Listen: Update Source %s'%self.source.name).decode('utf-8')
-                self.update()
-        t=threading.Process(target=updator,args=())
+        t=threading.Process(target=_updator,args=(self,))
         t.daemon=True
         t.start()
         self._thread=t

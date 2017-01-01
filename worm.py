@@ -8,6 +8,7 @@ import pdb
 
 from models import get_sources
 from handlers import get_handler
+from setting import PLATFORM
 
 class Worm(object):
     '''
@@ -75,6 +76,7 @@ class Worm(object):
             else:
                 posts.extend(h.posts)
         if kw is not None:
+            if PLATFORM=='Windows': kw=kw.decode('gb2312').encode('utf-8')
             posts=filter(lambda p:kw in p.title,posts)
         if important:
             posts=filter(lambda p:p.is_important,posts)
