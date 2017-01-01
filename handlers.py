@@ -1,8 +1,7 @@
 #-*-coding:utf-8-*-
 
 from lxml import html
-import re,time,bisect,random,json
-import multiprocessing as threading
+import time,bisect,random,json,sched
 from abc import ABCMeta, abstractmethod
 import pdb
 
@@ -13,14 +12,6 @@ from opener import MyBrowser
 
 __all__=['get_handler','RefreshHandler','JsonHandler','JRHandler','WSHandler','DummyHandler']
 
-def _updator(handler):
-    while True:
-        time.sleep(handler.source.update_span)
-        if not handler.is_listening:
-            break
-        print ('Listen: Update Source %s'%handler.source.name).decode('utf-8')
-        handler.update()
-
 class SourceHandler(object):
     '''
     Souce Handler class.
@@ -28,7 +19,6 @@ class SourceHandler(object):
     Attributes:
         :source: <Source>, source with title and link.
         :posts: list, <Post> instances.
-        :_stop_event: <threading.Event> instance, that control the listening thread.
         :is_listening(read only): bool,
     '''
     __metaclass__ = ABCMeta
@@ -40,9 +30,7 @@ class SourceHandler(object):
         #the opener
         self.browser=MyBrowser()
         #listening,
-        self._stop_event=threading.Event()
-        self.stop_listen()
-        self._thread=None
+        self._job=None
 
     def __str__(self):
         return '%s\n\tlistening(every %ss): %s\n\tnumber of posts: %s'%(self.source,\
@@ -52,6 +40,11 @@ class SourceHandler(object):
     def important_posts(self):
         '''Get important posts.'''
         return filter(lambda p:p.is_important,self.posts)
+
+    @property
+    def is_listening(self):
+        '''bool, is listening or not.'''
+        return self._job is not None and not (self._job.next_run_time is None or self._job.pending)
 
     ##################### Post management ################
     @abstractmethod
@@ -137,30 +130,34 @@ class SourceHandler(object):
         self.add_post(posts)
         return page
 
+    def _updator(self):
+        print ('Listen: Update Source %s'%self.source.name).decode('utf-8')
+        self.update()
+
     ######################## listening #################
-    @property
-    def is_listening(self):
-        return not self._stop_event.is_set()
 
-    def listen(self):
-        ''''''
+    def listen(self,s):
+        '''s is a scheduler'''
         if self.is_listening:
-            print 'Already listening.'
-            return 0
-        self._stop_event.clear()
-
-        #generate a new thread if first listening.
-        if self._thread is not None:
-            return
-        t=threading.Process(target=_updator,args=(self,))
-        t.daemon=True
-        t.start()
-        self._thread=t
-        return 1
+            return self._job
+        elif self._job is not None:
+            print 'Listening source %s.'%self.source.id
+            self._job.resume()
+        else:
+            #generate a new thread if first listening.
+            print 'Listening source %s.'%self.source.id
+            job=s.add_job(self._updator,'interval',seconds=self.source.update_span)
+            self._job=job
+            return job
 
     def stop_listen(self):
         '''Stop an listening even.'''
-        self._stop_event.set()
+        if not self.is_listening:
+            return self._job
+        else:
+            print 'Stop listening source %s.'%self.source.id
+            self._job.pause()
+            return self._job
 
 class DummyHandler(SourceHandler):
     '''Dummy Handler.'''

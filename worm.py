@@ -8,6 +8,7 @@ import pdb
 
 from models import get_sources
 from handlers import get_handler
+from apscheduler.schedulers.background import BackgroundScheduler as Scheduler
 from setting import PLATFORM
 
 class Worm(object):
@@ -23,6 +24,8 @@ class Worm(object):
         handlers=[get_handler(source) for source in get_sources()]
         handlers=[h for h in handlers if h.source.status=='ok']
         self.handlers=handlers
+        self.scheduler=Scheduler()
+        self.scheduler.start()
 
     def get_handler_bysid(self,id):
         '''Get the handler by id of source.'''
@@ -48,7 +51,10 @@ class Worm(object):
             if h is -1:
                 print 'Can not find specific handler %s.'%isource
             else:
-                getattr(h,command)()
+                if command=='listen':
+                    getattr(h,command)(s=self.scheduler)
+                else:
+                    getattr(h,command)()
 
     def get_listeners(self):
         '''Get all listeners.'''
