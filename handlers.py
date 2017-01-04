@@ -1,5 +1,6 @@
 #-*-coding:utf-8-*-
 
+
 from lxml import html
 import time,bisect,random,json,sched
 from abc import ABCMeta, abstractmethod
@@ -12,7 +13,7 @@ from opener import MyBrowser
 
 __all__=['get_handler','RefreshHandler','JsonHandler','JRHandler','WSHandler','DummyHandler']
 
-class SourceHandler(object):
+class SourceHandler(object, metaclass=ABCMeta):
     '''
     Souce Handler class.
 
@@ -21,7 +22,6 @@ class SourceHandler(object):
         :posts: list, <Post> instances.
         :is_listening(read only): bool,
     '''
-    __metaclass__ = ABCMeta
 
     def __init__(self,source):
         self.source=source
@@ -39,7 +39,7 @@ class SourceHandler(object):
     @property
     def important_posts(self):
         '''Get important posts.'''
-        return filter(lambda p:p.is_important,self.posts)
+        return [p for p in self.posts if p.is_important]
 
     @property
     def is_listening(self):
@@ -80,7 +80,7 @@ class SourceHandler(object):
         elif self.source.group==2:
             return any([k in post.title for k in KEYWORDS_ANS])
         elif self.source.group==-1:  #dummy group
-            print ('Is Important -> %s'%post).decode('utf-8')
+            print('Is Important -> %s'%post)
             return random.random()>0.5
         else:
             raise ValueError
@@ -131,7 +131,7 @@ class SourceHandler(object):
         return page
 
     def _updator(self):
-        print ('Listen: Update Source %s'%self.source.name).decode('utf-8')
+        print('Listen: Update Source %s'%self.source.name)
         self.update()
 
     ######################## listening #################
@@ -141,11 +141,11 @@ class SourceHandler(object):
         if self.is_listening:
             return self._job
         elif self._job is not None:
-            print 'Listening source %s.'%self.source.id
+            print('Listening source %s.'%self.source.id)
             self._job.resume()
         else:
             #generate a new thread if first listening.
-            print 'Listening source %s.'%self.source.id
+            print('Listening source %s.'%self.source.id)
             job=s.add_job(self._updator,'interval',seconds=self.source.update_span)
             self._job=job
             return job
@@ -155,7 +155,7 @@ class SourceHandler(object):
         if not self.is_listening:
             return self._job
         else:
-            print 'Stop listening source %s.'%self.source.id
+            print('Stop listening source %s.'%self.source.id)
             self._job.pause()
             return self._job
 
@@ -164,32 +164,28 @@ class DummyHandler(SourceHandler):
     @inherit_docstring_from(SourceHandler)
     def _extract_list(self,pagecontent):
         ipost=random.randint(0,100000000)
-        posts=[Post('Title-%s'%ipost,link='http://127.0.0.1/',time=time.time(),source_id=-1) for i in xrange(random.randint(0,15))]
+        posts=[Post('Title-%s'%ipost,link='http://127.0.0.1/',time=time.time(),source_id=-1) for i in range(random.randint(0,15))]
         res=[p for p in posts]
-        print 'Fetch list, get %s posts.'%len(res)
+        print('Fetch list, get %s posts.'%len(res))
         return res
 
-class RefreshHandler(SourceHandler):
-    __metaclass__ = ABCMeta
-
+class RefreshHandler(SourceHandler, metaclass=ABCMeta):
     @inherit_docstring_from(SourceHandler)
     def update(self):
         self.refresh()
 
-class JsonHandler(SourceHandler):
-    __metaclass__ = ABCMeta
+class JsonHandler(SourceHandler, metaclass=ABCMeta):
+    pass
     
-class JRHandler(SourceHandler):
+class JRHandler(SourceHandler, metaclass=ABCMeta):
     '''Json + Refresh type update.'''
-    __metaclass__ = ABCMeta
     @inherit_docstring_from(SourceHandler)
     def update(self):
         if self.need_update():
             self.refresh()
 
-class WSHandler(SourceHandler):
+class WSHandler(SourceHandler, metaclass=ABCMeta):
     '''Web Socket type update.'''
-    __metaclass__ = ABCMeta
 
 ################################# Specific Sources ##############################
 
@@ -207,7 +203,7 @@ class SHA0(RefreshHandler):
 
     def get_money(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        ele=tree.xpath(u".//td[text()[contains(.,'人民币')]]")
+        ele=tree.xpath(".//td[text()[contains(.,'人民币')]]")
         if len(ele)>0:
             res=match_money(ele[0].text)
             return res or 0
@@ -219,7 +215,7 @@ class SHA1(RefreshHandler):
     @inherit_docstring_from(SourceHandler)
     def _extract_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        lis=tree.xpath(u"//a[@class='a2']")
+        lis=tree.xpath("//a[@class='a2']")
         #times=tree.xpath("//td[@width=\"70\"]")
         baselink=self.source.baselink
         while baselink[-1]!='/':
@@ -237,7 +233,7 @@ class SHA2(RefreshHandler):
     @inherit_docstring_from(SourceHandler)
     def _extract_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        lis=tree.xpath(u"//li[contains(.,'中标')]")
+        lis=tree.xpath("//li[contains(.,'中标')]")
         baselink='http://www.gzg2b.gov.cn'
         posts=[]
         for li in lis[::-1]:
@@ -245,7 +241,7 @@ class SHA2(RefreshHandler):
                 a=li.find('a')
                 posts.append(Post(a.text.strip('\r\n '),baselink+a.get('href'),time=time.time(),source_id=self.source.id))
             except:
-                print 'Decode Fail: %s'%li
+                print('Decode Fail: %s'%li)
         return posts
 
     def get_money(self,pagecontent):
@@ -272,17 +268,16 @@ class SHB1(RefreshHandler):
     @inherit_docstring_from(SourceHandler)
     def _extract_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        lis=tree.xpath(u".//div[@class='title']")
+        lis=tree.xpath(".//div[@class='title']")
         posts=[]
         for li in lis[::-1]:
             try:
-                a=li.xpath(u'.//a[@target="_blank"]')[0]
+                a=li.xpath('.//a[@target="_blank"]')[0]
                 title=a.get('title') or a.text or a.find('font').text
                 post=Post(title,a.get('href'),time=time.time(),source_id=self.source.id)
                 posts.append(post)
             except:
-                raise
-                print 'Parsing Error!@B1'
+                print('Parsing Error! %s'%self.source)
         return posts
 
 class SHB2(JsonHandler):
@@ -304,7 +299,7 @@ class SHB2(JsonHandler):
     @inherit_docstring_from(SourceHandler)
     def _extract_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        lis=tree.xpath(u"//ul[@class='fix']")
+        lis=tree.xpath("//ul[@class='fix']")
         posts=[]
         for li in lis[::-1]:
             try:
@@ -312,8 +307,7 @@ class SHB2(JsonHandler):
                 post=Post(title,self.source.baselink,time=time.time(),source_id=self.source.id)
                 posts.append(post)
             except:
-                raise
-                print 'Parsing Error!@B2'
+                print('Parsing Error! %s'%self.source)
         return posts
 
 class SHC0(RefreshHandler):
@@ -323,18 +317,17 @@ class SHC0(RefreshHandler):
     @inherit_docstring_from(SourceHandler)
     def _extract_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        lis=tree.xpath(u".//div[@class='answerBox']")
+        lis=tree.xpath(".//div[@class='answerBox']")
         posts=[]
         for li in lis[::-1]:
             try:
-                user=li.xpath(u".//a[@class='blue1']")[0].text
-                content=li.xpath(u".//a[@class='cntcolor']")[0].text
+                user=li.xpath(".//a[@class='blue1']")[0].text
+                content=li.xpath(".//a[@class='cntcolor']")[0].text
                 title=user+': '+content.strip('\r\n\t ')
                 post=Post(title,self.source.baselink,time=time.time(),source_id=self.source.id)
                 posts.append(post)
             except:
-                raise
-                print 'Parsing Error!@B2'
+                print('Parsing Error! %s'%self.source)
         return posts
 
 class SHC1(RefreshHandler):
@@ -344,18 +337,17 @@ class SHC1(RefreshHandler):
     @inherit_docstring_from(SourceHandler)
     def _extract_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        lis=tree.xpath(u".//div[@class='m_feed_detail m_qa']")
+        lis=tree.xpath(".//div[@class='m_feed_detail m_qa']")
         posts=[]
         for li in lis[::-1]:
             try:
-                userl=li.xpath(u".//a[@class='ansface']")
+                userl=li.xpath(".//a[@class='ansface']")
                 if len(userl)==0: continue
-                ans=userl[0].get('title')+': '+li.xpath(u".//div[@class='m_feed_txt']")[0].text.strip('\r\n\t ')
+                ans=userl[0].get('title')+': '+li.xpath(".//div[@class='m_feed_txt']")[0].text.strip('\r\n\t ')
                 post=Post(ans,self.source.baselink,time=time.time(),source_id=self.source.id)
                 posts.append(post)
             except:
-                raise
-                print 'Parsing Error!@B2'
+                print('Parsing Error! %s'%self.source)
         return posts
 
 class SHC2(JRHandler):
@@ -385,16 +377,16 @@ class SHC2(JRHandler):
     @inherit_docstring_from(SourceHandler)
     def _extract_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        lis=tree.xpath(u".//article[@class='excerpt excerpt-nothumbnail']")
+        lis=tree.xpath(".//article[@class='excerpt excerpt-nothumbnail']")
         posts=[]
         for li in lis[::-1]:
             try:
-                ai=li.xpath(u'.//h2')[0].find('a')
+                ai=li.xpath('.//h2')[0].find('a')
                 title,link=ai.text.strip('\r\n\t '),ai.get('href')
                 post=Post(title,link,time=time.time(),source_id=self.source.id)
                 posts.append(post)
             except:
-                print ('Parsing Error! %s'%self.source).decode('utf-8')
+                print('Parsing Error! %s'%self.source)
         return posts
 
 class SHC3(RefreshHandler):
@@ -404,17 +396,16 @@ class SHC3(RefreshHandler):
     @inherit_docstring_from(SourceHandler)
     def _extract_list(self,pagecontent):
         tree=html.fromstring(pagecontent)
-        lis=tree.xpath(u".//div[@class='wonder']")
+        lis=tree.xpath(".//div[@class='wonder']")
         posts=[]
         for li in lis[1:][::-1]:
             try:
-                ai=li.xpath(u".//a[@class='wonderLink']")[0]
+                ai=li.xpath(".//a[@class='wonderLink']")[0]
                 title,link=ai.text.strip('\r\n\t '),ai.get('href')
                 post=Post(title,link,time=time.time(),source_id=self.source.id)
                 posts.append(post)
             except:
-                raise
-                print 'Parsing Error %s!'%self.source.title.decode('utf-8')
+                print('Parsing Error! %s'%self.source)
         return posts
 
 def get_handler(source):
@@ -448,6 +439,7 @@ def get_handler(source):
     elif source.name=='未知源':
         cls=DummyHandler
     else:
+        pdb.set_trace()
         raise ValueError
     return cls(source)
 
@@ -458,4 +450,4 @@ def alert_post(post):
         if mode=='beep':
             beep(NBEEP)
         elif mode=='print':
-            print ('Add New Post -> %s'%post).decode('utf-8')
+            print('Add New Post -> %s'%post)

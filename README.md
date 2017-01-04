@@ -1,8 +1,9 @@
 # A Simple Worm
 ##Requirements
-* python 2.7
-* lxml
-* requests
+* python (3.6)
+* APScheduler (3.3.1)
+* lxml (3.7.1)
+* six (1.10.0)
 
 ##Run In a Terminal
 ```

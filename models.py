@@ -1,6 +1,6 @@
 #-*-coding:utf-8-*-
 
-import requests,zlib,os,time,datetime
+import zlib,time,datetime
 import pdb
 
 from setting import SOURCE_CONFIG
@@ -24,10 +24,6 @@ class Source(object):
         if id==-1:
             Source._id+=1
             self.id=Source._id
-        if isinstance(baselink,unicode):
-            baselink=baselink.encode('utf-8')
-        if isinstance(name,unicode):
-            name=name.encode('utf-8')
         self.update_span,self.group,self.status=update_span,group,status
         self.baselink=baselink
         self.name=name
@@ -45,13 +41,9 @@ class Post(object):
         if id==-1:
             Post._id+=1
             self.id=Post._id
-        if isinstance(title,unicode):
-            title=title.encode('utf-8')
-        if isinstance(link,unicode):
-            link=link.encode('utf-8')
-        if isinstance(pagecontent,buffer):
+        if isinstance(pagecontent,memoryview):
             pagecontent=zlib.decompress(pagecontent)
-        self.title,self.link,self.time,self.source_id=title.replace(u'\u200b'.encode('utf-8'),''),link,time,source_id
+        self.title,self.link,self.time,self.source_id=title.replace('\u200b',''),link,time,source_id
         self.money,self.pagecontent=money,pagecontent
         self.is_important=is_important
 

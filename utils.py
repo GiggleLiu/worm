@@ -1,9 +1,10 @@
 #-*-coding:utf-8-*-
 
-import cPickle as pickle
+import pickle
 import os,platform,time,re
 import webbrowser
 import pdb
+from functools import reduce
 
 __all__=['quicksave','quickload','beep','inherit_docstring_from','match_money',\
         'load_samplepage','browselink','browsepage']
@@ -24,12 +25,12 @@ def quickload(filename):
 def beep(span=2,ntimes=1):
     '''Beep!'''
     if platform.system()=='Linux':
-        for i in xrange(ntimes):
+        for i in range(ntimes):
             os.system('canberra-gtk-play --file=/usr/share/sounds/ubuntu/stereo/phone-incoming-call.ogg')
             time.sleep(span)
     else:
         import winsound
-        for i in xrange(ntimes):
+        for i in range(ntimes):
             winsound.Beep(1000,1000) #1000 Hz, 1000 ms
             time.sleep(span)
 
@@ -43,7 +44,6 @@ def match_money(s):
     '''
     Search money string from a string, in wan yuan.
     '''
-    if isinstance(s,unicode): s=s.encode('utf-8')
     format1=[r'￥([\d|,]+\.?\d*)',r'([\d|,]+\.?\d*) ?元']
     format2=[r'([\d|,]+\.?\d*) ?万元']
     res1=reduce(lambda x,y:x+y,[re.findall(f,s) for f in format1])

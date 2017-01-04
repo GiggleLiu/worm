@@ -1,6 +1,7 @@
 #-*-coding:utf-8-*-
 
-import urllib2,cookielib,cgi,requests,json
+import cgi,http.cookiejar
+from six.moves.urllib.request import build_opener,HTTPCookieProcessor
 import pdb
 
 from setting import BROWSER_HEAD
@@ -10,8 +11,8 @@ __all__=['MyBrowser']
 class MyBrowser(object):
     # head: dict of header
     def __init__(self):
-        self.cookie = cookielib.CookieJar()
-        self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cookie))
+        self.cookie = http.cookiejar.CookieJar()
+        self.opener = build_opener(HTTPCookieProcessor(self.cookie))
         self.opener.addheaders = BROWSER_HEAD
 
     def openlink(self,link,encoding=None):

@@ -4,6 +4,7 @@
 Command line user interface.
 '''
 
+
 from cmd import Cmd
 import argparse,sys
 import pdb
@@ -58,7 +59,7 @@ class MyApp(Cmd,object):
                 return i
             except:
                 return -1
-                print 'Wrong type of input! Should be e.g. >> update 1'
+                print('Wrong type of input! Should be e.g. >> update 1')
 
     def do_lp(self,args):
         '''list posts'''
@@ -69,7 +70,7 @@ class MyApp(Cmd,object):
         n,isource,kw,ni=args.n,args.s,args.w,args.a
         posts=[]
         for i,p in enumerate(self.worm.get_posts(maxN=n,isource=isource,kw=kw,important=not ni)):
-            print i,(p.__str__()+'\n来源: %s'%self.worm.get_handler_bysid(p.source_id).source.name).decode('utf-8')
+            print(str(i)+p.__str__()+'\n来源: %s'%self.worm.get_handler_bysid(p.source_id).source.name)
 
     def do_ls(self,args):
         '''Show Status.'''
@@ -121,7 +122,7 @@ class MyApp(Cmd,object):
 
     def do_h(self,args):
         '''Help'''
-        print helptext
+        print(helptext)
 
     def do_quit(self,args):
         '''Quit'''

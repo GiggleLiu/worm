@@ -3,6 +3,7 @@
 Data scraping
 '''
 
+
 from lxml import html
 import pdb
 
@@ -49,7 +50,7 @@ class Worm(object):
             handlers=[self.get_handler_bysid(x) for x in isource]
         for h in handlers:
             if h is -1:
-                print 'Can not find specific handler %s.'%isource
+                print('Can not find specific handler %s.'%isource)
             else:
                 if command=='listen':
                     getattr(h,command)(s=self.scheduler)
@@ -62,11 +63,11 @@ class Worm(object):
 
     def print_stat(self):
         '''Get summary information.'''
-        print 'Summary '+'-'*72
+        print('Summary '+'-'*72)
         for h in self.handlers:
-            print h.__str__().decode('utf-8')
-        print '-'*80
-        print 'All %s sources.'%len(self.handlers)
+            print(h.__str__())
+        print('-'*80)
+        print('All %s sources.'%len(self.handlers))
 
     def get_posts(self,maxN,isource=None,kw=None,important=True):
         '''Get posts.'''
@@ -78,13 +79,12 @@ class Worm(object):
         posts=[]
         for ih,h in enumerate(handlers):
             if h is -1:
-                print 'Can not find handler for source %s.'%isource[ih]
+                print('Can not find handler for source %s.'%isource[ih])
             else:
                 posts.extend(h.posts)
         if kw is not None:
-            if PLATFORM=='Windows': kw=kw.decode('gb2312').encode('utf-8')
-            posts=filter(lambda p:kw in p.title,posts)
+            posts=[p for p in posts if kw in p.title]
         if important:
-            posts=filter(lambda p:p.is_important,posts)
+            posts=[p for p in posts if p.is_important]
         posts=sorted(posts,key=lambda p:p.time)
         return posts[-maxN:]
