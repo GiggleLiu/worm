@@ -50,7 +50,7 @@ SOURCE_CONFIG=[
         ('证快讯',1,150,'ok','http://news.cnstock.com/bwsd/index.html'),
         ('财联社',1,20,'ok','http://www.cailianpress.com'),
         ('互动易',2,150,'ok','http://irm.cninfo.com.cn/ircs/interaction/lastRepliesForSzse.do'),
-        ('上证e互动',2,150,'ok','http://sns.sseinfo.com/ajax/feeds.do?page=1&type=11&pageSize=30&lastid=-1&show=1'),
+        ('上证e互动',2,150,'ok','http://sns.sseinfo.com/ajax/feeds.do?page=1&type=11&pageSize=10&lastid=-1&show=1'),
         ('淘财经',1,20,'ok','http://www.taoguba.com/'),
         ('淘股吧',1,100,'ok','http://www.taoguba.com.cn/moreWonderList'),
         ('中国政府采购网-中央标',0,200,'ok','http://www.ccgp.gov.cn/cggg/zygg/zbgg/'),

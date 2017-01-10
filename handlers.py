@@ -143,10 +143,11 @@ class SourceHandler(object, metaclass=ABCMeta):
         elif self._job is not None:
             print('Listening source %s.'%self.source.id)
             self._job.resume()
+            return self._job
         else:
             #generate a new thread if first listening.
             print('Listening source %s.'%self.source.id)
-            job=s.add_job(self._updator,'interval',seconds=self.source.update_span)
+            job=s.add_job(self._updator,'interval',seconds=self.source.update_span,misfire_grace_time=10)
             self._job=job
             return job
 
@@ -260,7 +261,6 @@ class SHB0(WSHandler):
 
     @inherit_docstring_from(SourceHandler)
     def _extract_list(self,pagecontent):
-        pdb.set_trace()
         raise NotImplementedError
 
 class SHB1(RefreshHandler):
@@ -368,7 +368,7 @@ class SHC2(JRHandler):
             self.pid=js
             return False
         elif js>self.pid:
-            self.pid=jid
+            self.pid=js
             return True
         else:
             self.pid=js
@@ -439,7 +439,6 @@ def get_handler(source):
     elif source.name=='未知源':
         cls=DummyHandler
     else:
-        pdb.set_trace()
         raise ValueError
     return cls(source)
 
