@@ -17,7 +17,7 @@ class MyBrowser(object):
 
     def openlink(self,link,encoding=None):
         '''Open a link and get contents.'''
-        uop = self.opener.open(link, timeout = 1000)
+        uop = self.opener.open(link, timeout = 7)
         data = uop.read()
         _, params = cgi.parse_header(uop.headers.get('Content-Type', ''))
         if encoding is None: encoding = params.get('charset', 'utf-8')
